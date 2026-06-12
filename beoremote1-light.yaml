@@ -1,0 +1,210 @@
+blueprint:
+  name: 'BeoRemote One: Lights (keypad) — Mozart'
+  description: >-
+    Turn the BeoRemote One keypad (Light mode) into a full controller for one
+    light, group, or area. Digits 1-9 set brightness presets; Select toggles,
+    Play turns on, Stop turns off; Up/Down dim. Left/Right arrows shift colour
+    temperature warmer / cooler, and each colour key activates a scene (with
+    more than one assigned, repeat presses cycle through them).
+  domain: automation
+  input:
+    beoproduct:
+      name: Bang & Olufsen product
+      description: The product the BeoRemote One is connected to.
+      selector:
+        device:
+          integration: bang_olufsen
+          multiple: false
+
+    target_light:
+      name: Main light
+      description: The light, group, or area this keypad controls.
+      selector:
+        target:
+          entity:
+            - domain:
+                - light
+
+    ct_step:
+      name: 'Arrows: colour-temperature step'
+      description: >-
+        How many Kelvin the Left (warmer) and Right (cooler) arrows shift the
+        colour temperature of the Main light each press.
+      default: 800
+      selector:
+        number:
+          min: 50
+          max: 1000
+          step: 50
+          unit_of_measurement: K
+          mode: slider
+
+    green_scene:
+      name: 'Green key: scene(s)'
+      description: Scene(s) for the Green key; repeat presses cycle through the list.
+      default: []
+      selector:
+        entity:
+          domain: scene
+          multiple: true
+    red_scene:
+      name: 'Red key: scene(s)'
+      description: Scene(s) for the Red key; repeat presses cycle through the list.
+      default: []
+      selector:
+        entity:
+          domain: scene
+          multiple: true
+    yellow_scene:
+      name: 'Yellow key: scene(s)'
+      description: Scene(s) for the Yellow key; repeat presses cycle through the list.
+      default: []
+      selector:
+        entity:
+          domain: scene
+          multiple: true
+    blue_scene:
+      name: 'Blue key: scene(s)'
+      description: Scene(s) for the Blue key; repeat presses cycle through the list.
+      default: []
+      selector:
+        entity:
+          domain: scene
+          multiple: true
+
+    notify_target:
+      name: 'Notification target'
+      description: >-
+        Optional: push the scene name to your phone when a colour key cycles
+        scenes (handy when the scenes affect lights you can't see).
+      default: ''
+      selector:
+        entity:
+          domain: notify
+
+mode: restart
+max_exceeded: silent
+trigger:
+  - platform: event
+    event_type: bang_olufsen_websocket_event
+    event_data:
+      eventType: WebSocketEventBeoRemoteButton
+      eventData:
+        Type: KeyPress
+      device_id: !input beoproduct
+action:
+  - variables:
+      keypress: '{{ trigger.event.data.eventData.Key }}'
+      ct_step: !input ct_step
+      target_light: !input target_light
+      # Every light entity in the target (resolved whether it's an entity,
+      # device, or area) — used both to read colour temp and to report state.
+      target_lights: >-
+        {% set t = target_light %}
+        {% set ns = namespace(ids=[]) %}
+        {% if t.entity_id is defined %}{% set ns.ids = ns.ids + ([t.entity_id] if t.entity_id is string else t.entity_id) %}{% endif %}
+        {% if t.device_id is defined %}{% for d in ([t.device_id] if t.device_id is string else t.device_id) %}{% set ns.ids = ns.ids + device_entities(d) %}{% endfor %}{% endif %}
+        {% if t.area_id is defined %}{% for a in ([t.area_id] if t.area_id is string else t.area_id) %}{% set ns.ids = ns.ids + area_entities(a) %}{% endfor %}{% endif %}
+        {{ expand(ns.ids) | selectattr('domain', 'eq', 'light') | map(attribute='entity_id') | list }}
+      # A currently-on light to read colour temp from (empty if all are off).
+      ct_reference: >-
+        {{ (expand(target_lights) | selectattr('state', 'eq', 'on') | map(attribute='entity_id') | list | first) | default('') }}
+      green_scene: !input green_scene
+      red_scene: !input red_scene
+      yellow_scene: !input yellow_scene
+      blue_scene: !input blue_scene
+      # Scenes for whichever colour key was pressed (empty for any other key).
+      scenes_for_key: >-
+        {{ {'Light/Green': green_scene, 'Light/Red': red_scene,
+            'Light/Yellow': yellow_scene, 'Light/Blue': blue_scene}.get(keypress, []) }}
+      notify_target: !input notify_target
+  - choose:
+      # --- Main light: on / off / toggle ---
+      - conditions:
+          - '{{ keypress == "Light/Select" }}'
+        sequence:
+          - service: light.toggle
+            target: !input target_light
+      - conditions:
+          - '{{ keypress == "Light/Play" }}'
+        sequence:
+          - service: light.turn_on
+            target: !input target_light
+      - conditions:
+          - '{{ keypress == "Light/Stop" }}'
+        sequence:
+          - service: light.turn_off
+            target: !input target_light
+      - conditions:
+          - '{{ keypress == "Light/Digit0" }}'
+        sequence:
+          - service: light.turn_off
+            target: !input target_light
+
+      # --- Main light: dimming ---
+      - conditions:
+          - '{{ keypress == "Light/Up" }}'
+        sequence:
+          - service: light.turn_on
+            data:
+              brightness_step_pct: 6
+            target: !input target_light
+      - conditions:
+          - '{{ keypress == "Light/Down" }}'
+        sequence:
+          - service: light.turn_on
+            data:
+              brightness_step_pct: -6
+            target: !input target_light
+
+      # --- Main light: brightness presets (Digit 1-9 → 11%..99%, classic B&O) ---
+      - conditions:
+          - '{{ keypress.startswith("Light/Digit") and keypress[-1] in "123456789" }}'
+        sequence:
+          - service: light.turn_on
+            data:
+              brightness_pct: '{{ keypress[-1] | int * 11 }}'
+            target: !input target_light
+
+      # --- Arrows: colour temperature (Left warmer / Right cooler) ---
+      - conditions:
+          - '{{ keypress in ["Light/Left", "Light/Right"] }}'
+          - '{{ ct_reference not in [none, ""] and is_state(ct_reference, "on") }}'
+        sequence:
+          - service: light.turn_on
+            target: !input target_light
+            data:
+              color_temp_kelvin: >-
+                {% set step = ct_step if keypress == "Light/Right" else -ct_step %}
+                {{ [[ (state_attr(ct_reference, 'color_temp_kelvin') | int(4000)) + step,
+                      state_attr(ct_reference, 'min_color_temp_kelvin') | int(2000) ] | max,
+                    state_attr(ct_reference, 'max_color_temp_kelvin') | int(6500) ] | min }}
+
+      # --- Colour keys: scenes (cycle through the list on repeat presses) ---
+      # Cycle = activate the one *after* whichever scene was applied most
+      # recently (highest last-changed timestamp), wrapping around the list.
+      - conditions:
+          - '{{ (scenes_for_key | count) > 0 }}'
+        sequence:
+          - variables:
+              next_scene: >-
+                {% set s = scenes_for_key %}
+                {% set ns = namespace(best=0, idx=-1) %}
+                {% for e in s %}
+                  {% set ts = as_timestamp(states(e), 0) | float(0) %}
+                  {% if ts > ns.best %}{% set ns.best = ts %}{% set ns.idx = loop.index0 %}{% endif %}
+                {% endfor %}
+                {{ s[(ns.idx + 1) % (s | count)] }}
+          - service: scene.turn_on
+            data:
+              entity_id: '{{ next_scene }}'
+          # Push the scene we landed on — the one thing you can't tell at a glance.
+          - if:
+              - '{{ notify_target not in [none, ""] }}'
+            then:
+              - service: notify.send_message
+                target:
+                  entity_id: !input notify_target
+                data:
+                  title: Lights
+                  message: 'Scene: {{ state_attr(next_scene, "friendly_name") or next_scene }}'

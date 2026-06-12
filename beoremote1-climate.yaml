@@ -1,0 +1,266 @@
+blueprint:
+  name: 'BeoRemote One: Climate (keypad) — Mozart'
+  description: >-
+    Control a single climate device (air conditioner / heat pump) from the
+    BeoRemote One keypad while the remote is in Control mode. Modelled on the
+    classic B&O light keypad feel: Up/Down step the target temperature,
+    Select toggles power, the colour keys switch HVAC mode, the arrows change
+    fan speed, and the digits jump to temperature presets.
+
+    The Green key toggles Powerful / Boost mode if your AC exposes it as a
+    preset. Roles that your AC doesn't support (a missing HVAC mode, no fan
+    speeds, no boost preset) simply do nothing instead of erroring.
+  domain: automation
+  input:
+    beoproduct:
+      name: Bang & Olufsen product
+      description: The product the BeoRemote One is connected to.
+      selector:
+        device:
+          integration: bang_olufsen
+          multiple: false
+
+    climate_target:
+      name: Air conditioner
+      description: >-
+        The climate entity to control. Must be a single entity — temperature,
+        fan and mode stepping all read the device's current state.
+      selector:
+        entity:
+          domain: climate
+
+    temp_step:
+      name: 'Up / Down: temperature step'
+      description: How much each Up (warmer) / Down (cooler) press changes the target temperature.
+      default: 1
+      selector:
+        number:
+          min: 0.5
+          max: 5
+          step: 0.5
+          unit_of_measurement: °
+          mode: slider
+
+    preset_min:
+      name: 'Digits: lowest preset temperature (Digit 1)'
+      description: >-
+        Digit keys 1-9 jump to temperatures spread evenly between this and the
+        highest preset. Digit 1 = this value, Digit 9 = the highest. Digit 0
+        turns the AC off.
+      default: 18
+      selector:
+        number:
+          min: 10
+          max: 30
+          step: 0.5
+          unit_of_measurement: °
+          mode: slider
+    preset_max:
+      name: 'Digits: highest preset temperature (Digit 9)'
+      description: The temperature Digit 9 jumps to (Digit 1-9 are spread evenly up to here).
+      default: 26
+      selector:
+        number:
+          min: 10
+          max: 30
+          step: 0.5
+          unit_of_measurement: °
+          mode: slider
+
+    green_mode:
+      name: 'Green key: HVAC mode'
+      description: >-
+        Used only when Powerful / Boost is disabled (preset cleared below);
+        otherwise Green toggles Powerful.
+      default: ''
+      selector: &mode_selector
+        select:
+          mode: dropdown
+          options:
+            - { label: '— none —', value: '' }
+            - { label: 'Off', value: 'off' }
+            - { label: 'Cool', value: 'cool' }
+            - { label: 'Heat', value: 'heat' }
+            - { label: 'Heat/Cool', value: 'heat_cool' }
+            - { label: 'Auto', value: 'auto' }
+            - { label: 'Dry', value: 'dry' }
+            - { label: 'Fan only', value: 'fan_only' }
+    red_mode:
+      name: 'Red key: HVAC mode'
+      default: heat
+      selector: *mode_selector
+    yellow_mode:
+      name: 'Yellow key: HVAC mode'
+      default: dry
+      selector: *mode_selector
+    blue_mode:
+      name: 'Blue key: HVAC mode'
+      default: cool
+      selector: *mode_selector
+
+    powerful_preset:
+      name: 'Powerful / Boost: preset name'
+      description: >-
+        The climate preset your AC exposes for Powerful / Boost — the Green key
+        toggles between it and "none" (check preset_modes under Developer Tools
+        → States; common values: boost, powerful, Powerful). Clear this to free
+        up Green for its HVAC mode instead.
+      default: boost
+      selector:
+        text: {}
+
+    notify_target:
+      name: 'Notification target'
+      description: >-
+        Optional: push the new AC state to your phone after each keypress.
+      default: ''
+      selector:
+        entity:
+          domain: notify
+
+mode: queued
+max_exceeded: silent
+trigger:
+  - platform: event
+    event_type: bang_olufsen_websocket_event
+    event_data:
+      eventType: WebSocketEventBeoRemoteButton
+      eventData:
+        Type: KeyPress
+      device_id: !input beoproduct
+action:
+  - variables:
+      keypress: '{{ trigger.event.data.eventData.Key }}'
+      climate_target: !input climate_target
+      temp_step: !input temp_step
+      preset_min: !input preset_min
+      preset_max: !input preset_max
+      green_mode: !input green_mode
+      red_mode: !input red_mode
+      yellow_mode: !input yellow_mode
+      blue_mode: !input blue_mode
+      # HVAC mode for whichever colour key was pressed (empty for any other key).
+      key_mode: >-
+        {{ {'Control/Green': green_mode, 'Control/Red': red_mode,
+            'Control/Yellow': yellow_mode, 'Control/Blue': blue_mode}.get(keypress, '') }}
+      powerful_preset: !input powerful_preset
+      notify_target: !input notify_target
+      # Keys this blueprint owns; gates feedback so other keys don't notify.
+      handled_keys: >-
+        {{ ['Control/Select', 'Control/Play', 'Control/Stop', 'Control/Up',
+            'Control/Down', 'Control/Left', 'Control/Right', 'Control/Green',
+            'Control/Red', 'Control/Yellow', 'Control/Blue', 'Control/Digit0',
+            'Control/Digit1', 'Control/Digit2', 'Control/Digit3', 'Control/Digit4',
+            'Control/Digit5', 'Control/Digit6', 'Control/Digit7', 'Control/Digit8',
+            'Control/Digit9'] }}
+  - choose:
+      # --- Powerful / Boost on Green (overrides its HVAC role) ---
+      # Only claims Green if the preset exists; else it falls through.
+      - conditions:
+          - >-
+            {{ keypress == "Control/Green"
+               and powerful_preset in (state_attr(climate_target, "preset_modes") or []) }}
+        sequence:
+          - service: climate.set_preset_mode
+            target: { entity_id: !input climate_target }
+            data:
+              preset_mode: >-
+                {% set cur = state_attr(climate_target, 'preset_mode') %}
+                {{ 'none' if cur == powerful_preset else powerful_preset }}
+
+      # --- Power ---
+      - conditions: ['{{ keypress == "Control/Select" }}']
+        sequence:
+          - service: climate.toggle
+            target: { entity_id: !input climate_target }
+      - conditions: ['{{ keypress == "Control/Play" }}']
+        sequence:
+          - service: climate.turn_on
+            target: { entity_id: !input climate_target }
+      - conditions:
+          ['{{ keypress == "Control/Stop" or keypress == "Control/Digit0" }}']
+        sequence:
+          - service: climate.turn_off
+            target: { entity_id: !input climate_target }
+
+      # --- Temperature step ---
+      - conditions: ['{{ keypress == "Control/Up" }}']
+        sequence:
+          - service: climate.set_temperature
+            target: { entity_id: !input climate_target }
+            data:
+              temperature: >-
+                {{ [[ (state_attr(climate_target, 'temperature') | float(22)) + temp_step,
+                      state_attr(climate_target, 'min_temp') | float(16) ] | max,
+                    state_attr(climate_target, 'max_temp') | float(30) ] | min }}
+      - conditions: ['{{ keypress == "Control/Down" }}']
+        sequence:
+          - service: climate.set_temperature
+            target: { entity_id: !input climate_target }
+            data:
+              temperature: >-
+                {{ [[ (state_attr(climate_target, 'temperature') | float(22)) - temp_step,
+                      state_attr(climate_target, 'min_temp') | float(16) ] | max,
+                    state_attr(climate_target, 'max_temp') | float(30) ] | min }}
+
+      # --- Temperature presets (Digit 1-9 spread across preset_min..preset_max) ---
+      # Digit 1 → preset_min, Digit 9 → preset_max, rounded to the nearest 0.5°
+      # and clamped to the device's own min/max.
+      - conditions:
+          - '{{ keypress.startswith("Control/Digit") and keypress[-1] in "123456789" }}'
+        sequence:
+          - service: climate.set_temperature
+            target: { entity_id: !input climate_target }
+            data:
+              temperature: >-
+                {% set n = keypress[-1] | int - 1 %}
+                {{ [[ ((preset_min + n / 8 * (preset_max - preset_min)) * 2) | round(0) / 2,
+                      state_attr(climate_target, "min_temp") | float(16)] | max,
+                    state_attr(climate_target, "max_temp") | float(30)] | min }}
+
+      # --- Fan speed (Left slower / Right faster, clamped to the AC's fan_modes) ---
+      - conditions:
+          - '{{ keypress in ["Control/Left", "Control/Right"] }}'
+          - '{{ ((state_attr(climate_target, "fan_modes") or []) | count) > 0 }}'
+        sequence:
+          - service: climate.set_fan_mode
+            target: { entity_id: !input climate_target }
+            data:
+              fan_mode: >-
+                {% set m = state_attr(climate_target, 'fan_modes') %}
+                {% set c = state_attr(climate_target, 'fan_mode') %}
+                {% set i = (m.index(c) if c in m else 0) %}
+                {% set step = 1 if keypress == "Control/Right" else -1 %}
+                {{ m[[[i + step, 0] | max, (m | count) - 1] | min] }}
+
+      # --- HVAC mode (colour keys; skipped if unset or unsupported) ---
+      # Green only reaches here when Powerful / Boost is disabled (the preset
+      # branch above claims it otherwise).
+      - conditions:
+          - >-
+            {{ key_mode not in [none, ""]
+               and key_mode in (state_attr(climate_target, "hvac_modes") or []) }}
+        sequence:
+          - service: climate.set_hvac_mode
+            target: { entity_id: !input climate_target }
+            data: { hvac_mode: '{{ key_mode }}' }
+
+  # --- Feedback: push the resulting AC state to the phone ---
+  - choose:
+      - conditions:
+          - '{{ notify_target not in [none, ""] and keypress in handled_keys }}'
+        sequence:
+          # Let the state settle before reading it back.
+          - delay: { milliseconds: 400 }
+          - service: notify.send_message
+            target:
+              entity_id: !input notify_target
+            data:
+              title: Air conditioner
+              message: >-
+                {{ [
+                     states(climate_target) | replace('_', ' ') | title,
+                     ('%g°' | format(state_attr(climate_target, 'temperature'))) if state_attr(climate_target, 'temperature') is not none else '',
+                     ('Fan ' ~ state_attr(climate_target, 'fan_mode')) if state_attr(climate_target, 'fan_mode') else '',
+                     (state_attr(climate_target, 'preset_mode') | title) if state_attr(climate_target, 'preset_mode') not in [none, 'none'] else ''
+                   ] | select | list | join(' · ') }}

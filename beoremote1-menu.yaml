@@ -1,0 +1,379 @@
+blueprint:
+  name: 'BeoRemote One: Menu functions (lists) — Mozart'
+  description: >-
+    Assign any Home Assistant action to each item in the BeoRemote One Light and
+    Control lists (the menu functions, not the keypad). Every function is listed
+    below — fill in the ones you use and leave the rest empty. Unlike the keypad
+    blueprint, there are no fixed roles: each function can do anything (run a
+    scene, toggle the AC, open a shade, lock a door, call a script, …).
+
+    The names shown (Morning, Window 1, …) are Bang & Olufsen's factory defaults.
+    You can rename the menu items on the remote, but the underlying function code
+    (Light/Func1, Control/Func1, …) stays the same — enable Debug mode to see
+    which code a menu item actually sends.
+  domain: automation
+  input:
+    beoproduct:
+      name: Bang & Olufsen product
+      description: The product the BeoRemote One is connected to.
+      selector:
+        device:
+          integration: bang_olufsen
+          multiple: false
+
+    light_functions:
+      name: Light list functions
+      icon: mdi:lightbulb-group
+      description: Items shown in the remote's Light list.
+      collapsed: true
+      input:
+        light_func1:
+          name: Morning (Light/Func1)
+          default: []
+          selector:
+            action: {}
+        light_func2:
+          name: Leaving (Light/Func2)
+          default: []
+          selector:
+            action: {}
+        light_func3:
+          name: Coming home (Light/Func3)
+          default: []
+          selector:
+            action: {}
+        light_func4:
+          name: TV viewing (Light/Func4)
+          default: []
+          selector:
+            action: {}
+        light_func5:
+          name: Evening (Light/Func5)
+          default: []
+          selector:
+            action: {}
+        light_func6:
+          name: Music (Light/Func6)
+          default: []
+          selector:
+            action: {}
+        light_func7:
+          name: Relax (Light/Func7)
+          default: []
+          selector:
+            action: {}
+        light_func8:
+          name: Sleep (Light/Func8)
+          default: []
+          selector:
+            action: {}
+        light_func9:
+          name: General (Light/Func9)
+          default: []
+          selector:
+            action: {}
+        light_func10:
+          name: Outdoor (Light/Func10)
+          default: []
+          selector:
+            action: {}
+        light_func11:
+          name: Home (Light/Func11)
+          default: []
+          selector:
+            action: {}
+        light_func12:
+          name: Dinner (Light/Func12)
+          default: []
+          selector:
+            action: {}
+        light_func13:
+          name: Cinema (Light/Func13)
+          default: []
+          selector:
+            action: {}
+        light_func14:
+          name: Bedtime (Light/Func14)
+          default: []
+          selector:
+            action: {}
+        light_func15:
+          name: Night (Light/Func15)
+          default: []
+          selector:
+            action: {}
+        light_func16:
+          name: Welcome home (Light/Func16)
+          default: []
+          selector:
+            action: {}
+        light_func17:
+          name: Goodbye (Light/Func17)
+          default: []
+          selector:
+            action: {}
+
+    control_functions:
+      name: Control list functions
+      icon: mdi:tune
+      description: Items shown in the remote's Control list (shades, climate, etc.).
+      collapsed: true
+      input:
+        control_func1:
+          name: Window 1 (Control/Func1)
+          default: []
+          selector:
+            action: {}
+        control_func2:
+          name: Window 2 (Control/Func2)
+          default: []
+          selector:
+            action: {}
+        control_func3:
+          name: Window 3 (Control/Func3)
+          default: []
+          selector:
+            action: {}
+        control_func4:
+          name: Window 4 (Control/Func4)
+          default: []
+          selector:
+            action: {}
+        control_func5:
+          name: Window 5 (Control/Func5)
+          default: []
+          selector:
+            action: {}
+        control_func6:
+          name: Curtain 1 (Control/Func6)
+          default: []
+          selector:
+            action: {}
+        control_func7:
+          name: Curtain 2 (Control/Func7)
+          default: []
+          selector:
+            action: {}
+        control_func8:
+          name: Curtain 3 (Control/Func8)
+          default: []
+          selector:
+            action: {}
+        control_func9:
+          name: Curtain 4 (Control/Func9)
+          default: []
+          selector:
+            action: {}
+        control_func10:
+          name: Curtain 5 (Control/Func10)
+          default: []
+          selector:
+            action: {}
+        control_func11:
+          name: On-off 1 (Control/Func11)
+          default: []
+          selector:
+            action: {}
+        control_func12:
+          name: On-off 2 (Control/Func12)
+          default: []
+          selector:
+            action: {}
+        control_func13:
+          name: On-off 3 (Control/Func13)
+          default: []
+          selector:
+            action: {}
+        control_func14:
+          name: On-off 4 (Control/Func14)
+          default: []
+          selector:
+            action: {}
+        control_func15:
+          name: On-off 5 (Control/Func15)
+          default: []
+          selector:
+            action: {}
+        control_func16:
+          name: Shade 1 (Control/Func16)
+          default: []
+          selector:
+            action: {}
+        control_func17:
+          name: Shade 2 (Control/Func17)
+          default: []
+          selector:
+            action: {}
+        control_func18:
+          name: Shade 3 (Control/Func18)
+          default: []
+          selector:
+            action: {}
+        control_func19:
+          name: Shade 4 (Control/Func19)
+          default: []
+          selector:
+            action: {}
+        control_func20:
+          name: Shade 5 (Control/Func20)
+          default: []
+          selector:
+            action: {}
+        control_func21:
+          name: Fan (Control/Func21)
+          default: []
+          selector:
+            action: {}
+        control_func22:
+          name: Doorlock (Control/Func22)
+          default: []
+          selector:
+            action: {}
+        control_func23:
+          name: Alarm (Control/Func23)
+          default: []
+          selector:
+            action: {}
+        control_func24:
+          name: Control 1 On (Control/Func24)
+          default: []
+          selector:
+            action: {}
+        control_func25:
+          name: Control 1 Off (Control/Func25)
+          default: []
+          selector:
+            action: {}
+        control_func26:
+          name: Control 2 On (Control/Func26)
+          default: []
+          selector:
+            action: {}
+        control_func27:
+          name: Control 2 Off (Control/Func27)
+          default: []
+          selector:
+            action: {}
+
+    debug:
+      name: Debug mode
+      description: >-
+        Show a persistent notification with the function code of every menu item
+        you press. Use it to map menu items to function codes, then turn it off.
+      default: false
+      selector:
+        boolean: {}
+
+mode: single
+max_exceeded: silent
+trigger:
+  - platform: event
+    event_type: bang_olufsen_websocket_event
+    event_data:
+      eventType: WebSocketEventBeoRemoteButton
+      eventData:
+        Type: KeyPress
+      device_id: !input beoproduct
+action:
+  - variables:
+      keypress: '{{ trigger.event.data.eventData.Key }}'
+      debug: !input debug
+  - if:
+      - '{{ debug }}'
+    then:
+      - service: persistent_notification.create
+        data:
+          title: BeoRemote One function
+          message: '{{ keypress }} pressed.'
+  - choose:
+      # --- Light list ---
+      - conditions: ['{{ keypress == "Light/Func1" }}']
+        sequence: [{ choose: [], default: !input light_func1 }]
+      - conditions: ['{{ keypress == "Light/Func2" }}']
+        sequence: [{ choose: [], default: !input light_func2 }]
+      - conditions: ['{{ keypress == "Light/Func3" }}']
+        sequence: [{ choose: [], default: !input light_func3 }]
+      - conditions: ['{{ keypress == "Light/Func4" }}']
+        sequence: [{ choose: [], default: !input light_func4 }]
+      - conditions: ['{{ keypress == "Light/Func5" }}']
+        sequence: [{ choose: [], default: !input light_func5 }]
+      - conditions: ['{{ keypress == "Light/Func6" }}']
+        sequence: [{ choose: [], default: !input light_func6 }]
+      - conditions: ['{{ keypress == "Light/Func7" }}']
+        sequence: [{ choose: [], default: !input light_func7 }]
+      - conditions: ['{{ keypress == "Light/Func8" }}']
+        sequence: [{ choose: [], default: !input light_func8 }]
+      - conditions: ['{{ keypress == "Light/Func9" }}']
+        sequence: [{ choose: [], default: !input light_func9 }]
+      - conditions: ['{{ keypress == "Light/Func10" }}']
+        sequence: [{ choose: [], default: !input light_func10 }]
+      - conditions: ['{{ keypress == "Light/Func11" }}']
+        sequence: [{ choose: [], default: !input light_func11 }]
+      - conditions: ['{{ keypress == "Light/Func12" }}']
+        sequence: [{ choose: [], default: !input light_func12 }]
+      - conditions: ['{{ keypress == "Light/Func13" }}']
+        sequence: [{ choose: [], default: !input light_func13 }]
+      - conditions: ['{{ keypress == "Light/Func14" }}']
+        sequence: [{ choose: [], default: !input light_func14 }]
+      - conditions: ['{{ keypress == "Light/Func15" }}']
+        sequence: [{ choose: [], default: !input light_func15 }]
+      - conditions: ['{{ keypress == "Light/Func16" }}']
+        sequence: [{ choose: [], default: !input light_func16 }]
+      - conditions: ['{{ keypress == "Light/Func17" }}']
+        sequence: [{ choose: [], default: !input light_func17 }]
+
+      # --- Control list ---
+      - conditions: ['{{ keypress == "Control/Func1" }}']
+        sequence: [{ choose: [], default: !input control_func1 }]
+      - conditions: ['{{ keypress == "Control/Func2" }}']
+        sequence: [{ choose: [], default: !input control_func2 }]
+      - conditions: ['{{ keypress == "Control/Func3" }}']
+        sequence: [{ choose: [], default: !input control_func3 }]
+      - conditions: ['{{ keypress == "Control/Func4" }}']
+        sequence: [{ choose: [], default: !input control_func4 }]
+      - conditions: ['{{ keypress == "Control/Func5" }}']
+        sequence: [{ choose: [], default: !input control_func5 }]
+      - conditions: ['{{ keypress == "Control/Func6" }}']
+        sequence: [{ choose: [], default: !input control_func6 }]
+      - conditions: ['{{ keypress == "Control/Func7" }}']
+        sequence: [{ choose: [], default: !input control_func7 }]
+      - conditions: ['{{ keypress == "Control/Func8" }}']
+        sequence: [{ choose: [], default: !input control_func8 }]
+      - conditions: ['{{ keypress == "Control/Func9" }}']
+        sequence: [{ choose: [], default: !input control_func9 }]
+      - conditions: ['{{ keypress == "Control/Func10" }}']
+        sequence: [{ choose: [], default: !input control_func10 }]
+      - conditions: ['{{ keypress == "Control/Func11" }}']
+        sequence: [{ choose: [], default: !input control_func11 }]
+      - conditions: ['{{ keypress == "Control/Func12" }}']
+        sequence: [{ choose: [], default: !input control_func12 }]
+      - conditions: ['{{ keypress == "Control/Func13" }}']
+        sequence: [{ choose: [], default: !input control_func13 }]
+      - conditions: ['{{ keypress == "Control/Func14" }}']
+        sequence: [{ choose: [], default: !input control_func14 }]
+      - conditions: ['{{ keypress == "Control/Func15" }}']
+        sequence: [{ choose: [], default: !input control_func15 }]
+      - conditions: ['{{ keypress == "Control/Func16" }}']
+        sequence: [{ choose: [], default: !input control_func16 }]
+      - conditions: ['{{ keypress == "Control/Func17" }}']
+        sequence: [{ choose: [], default: !input control_func17 }]
+      - conditions: ['{{ keypress == "Control/Func18" }}']
+        sequence: [{ choose: [], default: !input control_func18 }]
+      - conditions: ['{{ keypress == "Control/Func19" }}']
+        sequence: [{ choose: [], default: !input control_func19 }]
+      - conditions: ['{{ keypress == "Control/Func20" }}']
+        sequence: [{ choose: [], default: !input control_func20 }]
+      - conditions: ['{{ keypress == "Control/Func21" }}']
+        sequence: [{ choose: [], default: !input control_func21 }]
+      - conditions: ['{{ keypress == "Control/Func22" }}']
+        sequence: [{ choose: [], default: !input control_func22 }]
+      - conditions: ['{{ keypress == "Control/Func23" }}']
+        sequence: [{ choose: [], default: !input control_func23 }]
+      - conditions: ['{{ keypress == "Control/Func24" }}']
+        sequence: [{ choose: [], default: !input control_func24 }]
+      - conditions: ['{{ keypress == "Control/Func25" }}']
+        sequence: [{ choose: [], default: !input control_func25 }]
+      - conditions: ['{{ keypress == "Control/Func26" }}']
+        sequence: [{ choose: [], default: !input control_func26 }]
+      - conditions: ['{{ keypress == "Control/Func27" }}']
+        sequence: [{ choose: [], default: !input control_func27 }]
