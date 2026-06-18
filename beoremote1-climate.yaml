@@ -110,13 +110,24 @@ blueprint:
         text: {}
 
     notify_target:
-      name: 'Notification target'
+      name: 'Notification target (entity)'
       description: >-
-        Optional: push the new AC state to your phone after each keypress.
+        Optional: push the new AC state to a notify entity (e.g. your phone)
+        after each keypress.
       default: ''
       selector:
         entity:
           domain: notify
+
+    notify_service:
+      name: 'Notification service (name)'
+      description: >-
+        Optional: push the new AC state to a notify service by name, e.g.
+        "lg_g2_65" for a TV (the "notify." prefix is optional). Can be combined
+        with the entity target above.
+      default: ''
+      selector:
+        text: {}
 
 mode: queued
 max_exceeded: silent
@@ -145,6 +156,10 @@ action:
             'Control/Yellow': yellow_mode, 'Control/Blue': blue_mode}.get(keypress, '') }}
       powerful_preset: !input powerful_preset
       notify_target: !input notify_target
+      notify_service_raw: !input notify_service
+      # Service name with any leading "notify." stripped.
+      notify_service: >-
+        {{ (notify_service_raw | default('')) | replace('notify.', '') | trim }}
       # Keys this blueprint owns; gates feedback so other keys don't notify.
       handled_keys: >-
         {{ ['Control/Select', 'Control/Play', 'Control/Stop', 'Control/Up',
@@ -245,22 +260,38 @@ action:
             target: { entity_id: !input climate_target }
             data: { hvac_mode: '{{ key_mode }}' }
 
-  # --- Feedback: push the resulting AC state to the phone ---
+  # --- Feedback: push the resulting AC state to the notify entity and/or service ---
   - choose:
       - conditions:
-          - '{{ notify_target not in [none, ""] and keypress in handled_keys }}'
+          - >-
+            {{ keypress in handled_keys
+               and (notify_target not in [none, ""] or notify_service not in [none, ""]) }}
         sequence:
           # Let the state settle before reading it back.
           - delay: { milliseconds: 400 }
-          - service: notify.send_message
-            target:
-              entity_id: !input notify_target
-            data:
-              title: Air conditioner
-              message: >-
+          - variables:
+              notify_message: >-
                 {{ [
                      states(climate_target) | replace('_', ' ') | title,
                      ('%g°' | format(state_attr(climate_target, 'temperature'))) if state_attr(climate_target, 'temperature') is not none else '',
                      ('Fan ' ~ state_attr(climate_target, 'fan_mode')) if state_attr(climate_target, 'fan_mode') else '',
                      (state_attr(climate_target, 'preset_mode') | title) if state_attr(climate_target, 'preset_mode') not in [none, 'none'] else ''
                    ] | select | list | join(' · ') }}
+          # Notify entity, if one was selected.
+          - if:
+              - '{{ notify_target not in [none, ""] }}'
+            then:
+              - service: notify.send_message
+                target:
+                  entity_id: '{{ notify_target }}'
+                data:
+                  title: Air conditioner
+                  message: '{{ notify_message }}'
+          # Notify service by name, if one was given.
+          - if:
+              - '{{ notify_service not in [none, ""] }}'
+            then:
+              - service: '{{ "notify." ~ notify_service }}'
+                data:
+                  title: Air conditioner
+                  message: '{{ notify_message }}'
