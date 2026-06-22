@@ -26,9 +26,9 @@ In Home Assistant: **Settings → Automations & Scenes → Blueprints → Import
 Blueprint**, paste a file URL, then build an automation from it. Or use the
 one-click links:
 
-- [Lights](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2Fspacecakes%2Fbr1-blueprints%2Fmain%2Fbeoremote1-light.yaml)
-- [Climate / AC](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2Fspacecakes%2Fbr1-blueprints%2Fmain%2Fbeoremote1-climate.yaml)
-- [Menu functions](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2Fspacecakes%2Fbr1-blueprints%2Fmain%2Fbeoremote1-menu.yaml)
+- [Lights](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fspacecakes%2Fbr1-blueprints%2Fblob%2Fmain%2Fbeoremote1-light.yaml)
+- [Climate / AC](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fspacecakes%2Fbr1-blueprints%2Fblob%2Fmain%2Fbeoremote1-climate.yaml)
+- [Menu functions](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fspacecakes%2Fbr1-blueprints%2Fblob%2Fmain%2Fbeoremote1-menu.yaml)
 
 **Updating:** Home Assistant keeps a local copy on import. After a new version
 is pushed here, open the blueprint's **⋮ → Re-import blueprint** to pull it.
