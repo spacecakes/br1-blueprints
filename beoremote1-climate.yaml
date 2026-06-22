@@ -109,25 +109,35 @@ blueprint:
       selector:
         text: {}
 
-    notify_target:
-      name: 'Notification target (entity)'
+    notify_service:
+      name: 'Notification service (name)'
       description: >-
-        Optional: push the new AC state to a notify entity (e.g. your phone)
-        after each keypress.
+        Push the new AC state to a notify service by name, e.g. "lg_g2_65" for
+        a TV (the "notify." prefix is optional). This is the preferred target.
+      default: ''
+      selector:
+        text: {}
+
+    notify_service_power:
+      name: 'Notification service: power entity'
+      description: >-
+        Power entity gating the service above — it's only used while this entity
+        is on; when it's off the notification falls back to the entity target
+        below. Defaults to the B&O product's own media_player (e.g. the BeoSound
+        Theatre — if it's on, the TV is too), so you usually leave this blank.
+      default: ''
+      selector:
+        entity: {}
+
+    notify_target:
+      name: 'Notification target (entity) — fallback'
+      description: >-
+        Fallback notify entity (e.g. your phone). Used when the service above is
+        unset, or when its power entity is off.
       default: ''
       selector:
         entity:
           domain: notify
-
-    notify_service:
-      name: 'Notification service (name)'
-      description: >-
-        Optional: push the new AC state to a notify service by name, e.g.
-        "lg_g2_65" for a TV (the "notify." prefix is optional). Can be combined
-        with the entity target above.
-      default: ''
-      selector:
-        text: {}
 
 mode: queued
 max_exceeded: silent
@@ -155,11 +165,23 @@ action:
         {{ {'Control/Green': green_mode, 'Control/Red': red_mode,
             'Control/Yellow': yellow_mode, 'Control/Blue': blue_mode}.get(keypress, '') }}
       powerful_preset: !input powerful_preset
+      beoproduct: !input beoproduct
       notify_target: !input notify_target
+      notify_service_power: !input notify_service_power
       notify_service_raw: !input notify_service
       # Service name with any leading "notify." stripped.
       notify_service: >-
         {{ (notify_service_raw | default('')) | replace('notify.', '') | trim }}
+      # Power gate: the chosen entity, else the B&O product's media_player.
+      notify_power_entity: >-
+        {{ notify_service_power if notify_service_power not in [none, ""]
+           else (device_entities(beoproduct) | select('match', 'media_player') | first | default('')) }}
+      # Use the service when set and (no gate found, or the gate isn't off).
+      notify_service_active: >-
+        {{ notify_service not in [none, ""]
+           and (notify_power_entity in [none, ""]
+                or states(notify_power_entity) not in
+                   ['off', 'standby', 'unavailable', 'unknown']) }}
       # Keys this blueprint owns; gates feedback so other keys don't notify.
       handled_keys: >-
         {{ ['Control/Select', 'Control/Play', 'Control/Stop', 'Control/Up',
@@ -277,21 +299,22 @@ action:
                      ('Fan ' ~ state_attr(climate_target, 'fan_mode')) if state_attr(climate_target, 'fan_mode') else '',
                      (state_attr(climate_target, 'preset_mode') | title) if state_attr(climate_target, 'preset_mode') not in [none, 'none'] else ''
                    ] | select | list | join(' · ') }}
-          # Notify entity, if one was selected.
           - if:
-              - '{{ notify_target not in [none, ""] }}'
-            then:
-              - service: notify.send_message
-                target:
-                  entity_id: '{{ notify_target }}'
-                data:
-                  title: Air conditioner
-                  message: '{{ notify_message }}'
-          # Notify service by name, if one was given.
-          - if:
-              - '{{ notify_service not in [none, ""] }}'
+              # Primary: notify service (e.g. TV) while its power entity is on.
+              - '{{ notify_service_active }}'
             then:
               - service: '{{ "notify." ~ notify_service }}'
                 data:
                   title: Air conditioner
                   message: '{{ notify_message }}'
+            else:
+              # Fallback: notify entity (e.g. phone).
+              - if:
+                  - '{{ notify_target not in [none, ""] }}'
+                then:
+                  - service: notify.send_message
+                    target:
+                      entity_id: '{{ notify_target }}'
+                    data:
+                      title: Air conditioner
+                      message: '{{ notify_message }}'
