@@ -1,15 +1,10 @@
 blueprint:
   name: 'BeoRemote One: Climate (keypad) — Mozart'
   description: >-
-    Control a single climate device (air conditioner / heat pump) from the
-    BeoRemote One keypad while the remote is in Control mode. Modelled on the
-    classic B&O light keypad feel: Up/Down step the target temperature,
-    Select toggles power, the colour keys switch HVAC mode, the arrows change
-    fan speed, and the digits jump to temperature presets.
-
-    The Green key toggles Powerful / Boost mode if your AC exposes it as a
-    preset. Roles that your AC doesn't support (a missing HVAC mode, no fan
-    speeds, no boost preset) simply do nothing instead of erroring.
+    Control a climate device from the BeoRemote One keypad (Control mode):
+    Up/Down step temperature, Select toggles power, colour keys set HVAC mode,
+    arrows change fan speed, digits jump to presets, and Green toggles Powerful
+    / Boost. Unsupported roles do nothing instead of erroring.
   domain: automation
   input:
     beoproduct:
@@ -22,16 +17,14 @@ blueprint:
 
     climate_target:
       name: Air conditioner
-      description: >-
-        The climate entity to control. Must be a single entity — temperature,
-        fan and mode stepping all read the device's current state.
+      description: The single climate entity to control.
       selector:
         entity:
           domain: climate
 
     temp_step:
       name: 'Up / Down: temperature step'
-      description: How much each Up (warmer) / Down (cooler) press changes the target temperature.
+      description: Degrees each Up (warmer) / Down (cooler) press changes the target.
       default: 1
       selector:
         number:
@@ -44,9 +37,8 @@ blueprint:
     preset_min:
       name: 'Digits: lowest preset temperature (Digit 1)'
       description: >-
-        Digit keys 1-9 jump to temperatures spread evenly between this and the
-        highest preset. Digit 1 = this value, Digit 9 = the highest. Digit 0
-        turns the AC off.
+        Digits 1-9 jump to temperatures spread evenly up to the highest preset;
+        Digit 0 turns the AC off.
       default: 18
       selector:
         number:
@@ -57,7 +49,7 @@ blueprint:
           mode: slider
     preset_max:
       name: 'Digits: highest preset temperature (Digit 9)'
-      description: The temperature Digit 9 jumps to (Digit 1-9 are spread evenly up to here).
+      description: The temperature Digit 9 jumps to.
       default: 26
       selector:
         number:
@@ -69,9 +61,7 @@ blueprint:
 
     green_mode:
       name: 'Green key: HVAC mode'
-      description: >-
-        Used only when Powerful / Boost is disabled (preset cleared below);
-        otherwise Green toggles Powerful.
+      description: Used only when Powerful / Boost is cleared below.
       default: ''
       selector: &mode_selector
         select:
@@ -101,43 +91,42 @@ blueprint:
     powerful_preset:
       name: 'Powerful / Boost: preset name'
       description: >-
-        The climate preset your AC exposes for Powerful / Boost — the Green key
-        toggles between it and "none" (check preset_modes under Developer Tools
-        → States; common values: boost, powerful, Powerful). Clear this to free
-        up Green for its HVAC mode instead.
+        Climate preset the Green key toggles (e.g. boost, powerful). Clear it to
+        use Green for its HVAC mode instead.
       default: boost
       selector:
         text: {}
 
+    # Per keypress: primary service when its gate is on, else fallback entity.
     notify_service:
-      name: 'Notification service (name)'
+      name: 'Primary notification: service name'
       description: >-
-        Push the new AC state to a notify service by name, e.g. "lg_g2_65" for
-        a TV (the "notify." prefix is optional). This is the preferred target.
+        Notify service to send AC state to first, e.g. "lg_g2_65" for a TV (the
+        "notify." prefix is optional). Skipped when its power entity is off.
       default: ''
       selector:
         text: {}
 
     notify_service_power:
-      name: 'Notification service: power entity'
+      name: 'Primary notification: power entity'
       description: >-
-        Power entity gating the service above — it's only used while this entity
-        is on; when it's off the notification falls back to the entity target
-        below. Defaults to the B&O product's own media_player (e.g. the BeoSound
-        Theatre — if it's on, the TV is too), so you usually leave this blank.
+        The primary service is used only while this entity is on, else it falls
+        back below. Best the target's own media_player; defaults to the B&O
+        product's when blank.
       default: ''
       selector:
         entity: {}
 
     notify_target:
-      name: 'Notification target (entity) — fallback'
+      name: 'Fallback notification: entities'
       description: >-
-        Fallback notify entity (e.g. your phone). Used when the service above is
-        unset, or when its power entity is off.
-      default: ''
+        One or more notify entities (e.g. your phone) used when the primary is
+        unset or off.
+      default: []
       selector:
         entity:
           domain: notify
+          multiple: true
 
 mode: queued
 max_exceeded: silent
@@ -160,7 +149,7 @@ action:
       red_mode: !input red_mode
       yellow_mode: !input yellow_mode
       blue_mode: !input blue_mode
-      # HVAC mode for whichever colour key was pressed (empty for any other key).
+      # HVAC mode for the colour key pressed (else empty).
       key_mode: >-
         {{ {'Control/Green': green_mode, 'Control/Red': red_mode,
             'Control/Yellow': yellow_mode, 'Control/Blue': blue_mode}.get(keypress, '') }}
@@ -169,20 +158,22 @@ action:
       notify_target: !input notify_target
       notify_service_power: !input notify_service_power
       notify_service_raw: !input notify_service
-      # Service name with any leading "notify." stripped.
+      # Strip any leading "notify." prefix.
       notify_service: >-
         {{ (notify_service_raw | default('')) | replace('notify.', '') | trim }}
-      # Power gate: the chosen entity, else the B&O product's media_player.
+      # Gate entity: chosen, else the B&O product's media_player.
       notify_power_entity: >-
         {{ notify_service_power if notify_service_power not in [none, ""]
            else (device_entities(beoproduct) | select('match', 'media_player') | first | default('')) }}
-      # Use the service when set and (no gate found, or the gate isn't off).
+      # Service active when set and its gate isn't off.
       notify_service_active: >-
         {{ notify_service not in [none, ""]
            and (notify_power_entity in [none, ""]
                 or states(notify_power_entity) not in
                    ['off', 'standby', 'unavailable', 'unknown']) }}
-      # Keys this blueprint owns; gates feedback so other keys don't notify.
+      # Any fallback entity picked? (list input)
+      notify_target_set: '{{ (notify_target | default([]) | count) > 0 }}'
+      # Keys this blueprint owns (gates feedback).
       handled_keys: >-
         {{ ['Control/Select', 'Control/Play', 'Control/Stop', 'Control/Up',
             'Control/Down', 'Control/Left', 'Control/Right', 'Control/Green',
@@ -191,8 +182,7 @@ action:
             'Control/Digit5', 'Control/Digit6', 'Control/Digit7', 'Control/Digit8',
             'Control/Digit9'] }}
   - choose:
-      # --- Powerful / Boost on Green (overrides its HVAC role) ---
-      # Only claims Green if the preset exists; else it falls through.
+      # --- Powerful / Boost on Green (only if the preset exists, else falls through) ---
       - conditions:
           - >-
             {{ keypress == "Control/Green"
@@ -240,9 +230,7 @@ action:
                       state_attr(climate_target, 'min_temp') | float(16) ] | max,
                     state_attr(climate_target, 'max_temp') | float(30) ] | min }}
 
-      # --- Temperature presets (Digit 1-9 spread across preset_min..preset_max) ---
-      # Digit 1 → preset_min, Digit 9 → preset_max, rounded to the nearest 0.5°
-      # and clamped to the device's own min/max.
+      # --- Temperature presets (Digit 1→preset_min … 9→preset_max, snapped to 0.5° and clamped) ---
       - conditions:
           - '{{ keypress.startswith("Control/Digit") and keypress[-1] in "123456789" }}'
         sequence:
@@ -270,9 +258,7 @@ action:
                 {% set step = 1 if keypress == "Control/Right" else -1 %}
                 {{ m[[[i + step, 0] | max, (m | count) - 1] | min] }}
 
-      # --- HVAC mode (colour keys; skipped if unset or unsupported) ---
-      # Green only reaches here when Powerful / Boost is disabled (the preset
-      # branch above claims it otherwise).
+      # --- HVAC mode (colour keys; skipped if unset/unsupported; Green only if Boost disabled) ---
       - conditions:
           - >-
             {{ key_mode not in [none, ""]
@@ -282,14 +268,14 @@ action:
             target: { entity_id: !input climate_target }
             data: { hvac_mode: '{{ key_mode }}' }
 
-  # --- Feedback: push the resulting AC state to the notify entity and/or service ---
+  # --- Feedback: push AC state to the primary service, else the fallback entity ---
   - choose:
       - conditions:
           - >-
             {{ keypress in handled_keys
-               and (notify_target not in [none, ""] or notify_service not in [none, ""]) }}
+               and (notify_target_set or notify_service not in [none, ""]) }}
         sequence:
-          # Let the state settle before reading it back.
+          # Let the state settle.
           - delay: { milliseconds: 400 }
           - variables:
               notify_message: >-
@@ -300,17 +286,19 @@ action:
                      (state_attr(climate_target, 'preset_mode') | title) if state_attr(climate_target, 'preset_mode') not in [none, 'none'] else ''
                    ] | select | list | join(' · ') }}
           - if:
-              # Primary: notify service (e.g. TV) while its power entity is on.
+              # Primary (e.g. TV) while its gate is on.
               - '{{ notify_service_active }}'
             then:
+              # Tolerate a race where the target went off after the gate read on.
               - service: '{{ "notify." ~ notify_service }}'
+                continue_on_error: true
                 data:
                   title: Air conditioner
                   message: '{{ notify_message }}'
             else:
-              # Fallback: notify entity (e.g. phone).
+              # Fallback (e.g. phone) when primary is off/unset.
               - if:
-                  - '{{ notify_target not in [none, ""] }}'
+                  - '{{ notify_target_set }}'
                 then:
                   - service: notify.send_message
                     target:
