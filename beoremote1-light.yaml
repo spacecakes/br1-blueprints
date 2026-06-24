@@ -1,11 +1,10 @@
 blueprint:
   name: 'BeoRemote One: Lights (keypad) — Mozart'
   description: >-
-    Turn the BeoRemote One keypad (Light mode) into a full controller for one
-    light, group, or area. Digits 1-9 set brightness presets; Select toggles,
-    Play turns on, Stop turns off; Up/Down dim. Left/Right arrows shift colour
-    temperature warmer / cooler, and each colour key activates a scene (with
-    more than one assigned, repeat presses cycle through them).
+    Control a light, group, or area from the BeoRemote One keypad (Light mode):
+    Digits 1-9 set brightness, Select toggles, Play/Stop turn on/off, Up/Down
+    dim, arrows shift colour temperature, and colour keys activate scenes
+    (repeat presses cycle through multiple).
   domain: automation
   input:
     beoproduct:
@@ -27,9 +26,7 @@ blueprint:
 
     ct_step:
       name: 'Arrows: colour-temperature step'
-      description: >-
-        How many Kelvin the Left (warmer) and Right (cooler) arrows shift the
-        colour temperature of the Main light each press.
+      description: Kelvin the Left (warmer) / Right (cooler) arrows shift per press.
       default: 800
       selector:
         number:
@@ -74,9 +71,7 @@ blueprint:
 
     notify_target:
       name: 'Notification target'
-      description: >-
-        Optional: push the scene name to your phone when a colour key cycles
-        scenes (handy when the scenes affect lights you can't see).
+      description: 'Optional: push the scene name when a colour key cycles scenes.'
       default: ''
       selector:
         entity:
@@ -97,8 +92,7 @@ action:
       keypress: '{{ trigger.event.data.eventData.Key }}'
       ct_step: !input ct_step
       target_light: !input target_light
-      # Every light entity in the target (resolved whether it's an entity,
-      # device, or area) — used both to read colour temp and to report state.
+      # All light entities in the target (entity/device/area resolved).
       target_lights: >-
         {% set t = target_light %}
         {% set ns = namespace(ids=[]) %}
@@ -106,14 +100,14 @@ action:
         {% if t.device_id is defined %}{% for d in ([t.device_id] if t.device_id is string else t.device_id) %}{% set ns.ids = ns.ids + device_entities(d) %}{% endfor %}{% endif %}
         {% if t.area_id is defined %}{% for a in ([t.area_id] if t.area_id is string else t.area_id) %}{% set ns.ids = ns.ids + area_entities(a) %}{% endfor %}{% endif %}
         {{ expand(ns.ids) | selectattr('domain', 'eq', 'light') | map(attribute='entity_id') | list }}
-      # A currently-on light to read colour temp from (empty if all are off).
+      # An on light to read colour temp from (else empty).
       ct_reference: >-
         {{ (expand(target_lights) | selectattr('state', 'eq', 'on') | map(attribute='entity_id') | list | first) | default('') }}
       green_scene: !input green_scene
       red_scene: !input red_scene
       yellow_scene: !input yellow_scene
       blue_scene: !input blue_scene
-      # Scenes for whichever colour key was pressed (empty for any other key).
+      # Scenes for the colour key pressed (else empty).
       scenes_for_key: >-
         {{ {'Light/Green': green_scene, 'Light/Red': red_scene,
             'Light/Yellow': yellow_scene, 'Light/Blue': blue_scene}.get(keypress, []) }}
@@ -180,9 +174,7 @@ action:
                       state_attr(ct_reference, 'min_color_temp_kelvin') | int(2000) ] | max,
                     state_attr(ct_reference, 'max_color_temp_kelvin') | int(6500) ] | min }}
 
-      # --- Colour keys: scenes (cycle through the list on repeat presses) ---
-      # Cycle = activate the one *after* whichever scene was applied most
-      # recently (highest last-changed timestamp), wrapping around the list.
+      # --- Colour keys: scenes (repeat presses cycle to the scene after the most-recent, wrapping) ---
       - conditions:
           - '{{ (scenes_for_key | count) > 0 }}'
         sequence:
@@ -198,7 +190,7 @@ action:
           - service: scene.turn_on
             data:
               entity_id: '{{ next_scene }}'
-          # Push the scene we landed on — the one thing you can't tell at a glance.
+          # Push the scene we landed on.
           - if:
               - '{{ notify_target not in [none, ""] }}'
             then:

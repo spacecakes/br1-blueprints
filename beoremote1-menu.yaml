@@ -2,15 +2,10 @@ blueprint:
   name: 'BeoRemote One: Menu functions (lists) — Mozart'
   description: >-
     Assign any Home Assistant action to each item in the BeoRemote One Light and
-    Control lists (the menu functions, not the keypad). Every function is listed
-    below — fill in the ones you use and leave the rest empty. Unlike the keypad
-    blueprint, there are no fixed roles: each function can do anything (run a
-    scene, toggle the AC, open a shade, lock a door, call a script, …).
-
-    The names shown (Morning, Window 1, …) are Bang & Olufsen's factory defaults.
-    You can rename the menu items on the remote, but the underlying function code
-    (Light/Func1, Control/Func1, …) stays the same — enable Debug mode to see
-    which code a menu item actually sends.
+    Control lists (the menu functions, not the keypad). Fill in the ones you use,
+    leave the rest empty. The names shown are B&O's factory defaults; the
+    function code (Light/Func1, …) stays the same if you rename items — enable
+    Debug mode to see which code an item sends.
   domain: automation
   input:
     beoproduct:
@@ -258,8 +253,8 @@ blueprint:
     debug:
       name: Debug mode
       description: >-
-        Show a persistent notification with the function code of every menu item
-        you press. Use it to map menu items to function codes, then turn it off.
+        Show a notification with the function code of each menu item you press,
+        to map items to codes. Turn off when done.
       default: false
       selector:
         boolean: {}
