@@ -69,13 +69,46 @@ blueprint:
           domain: scene
           multiple: true
 
-    notify_target:
-      name: 'Notification target'
-      description: 'Optional: push the scene name when a colour key cycles scenes.'
+    # Per keypress: primary service when its gate is on, else fallback entity.
+    notify_service:
+      name: 'Primary notification: service name'
+      description: >-
+        Notify service to send the scene name to first, e.g. "notify.lg_g2_65"
+        for a TV. Skipped when its power entity is off.
       default: ''
+      selector:
+        text: {}
+
+    notify_service_power:
+      name: 'Primary notification: power entity'
+      description: >-
+        The primary service is used only while this entity is on, else it falls
+        back below. Best the target's own media_player; defaults to the B&O
+        product's when blank.
+      default: ''
+      selector:
+        entity: {}
+
+    notify_target:
+      name: 'Fallback notification: entities'
+      description: >-
+        One or more notify entities (e.g. your phone) used when the primary is
+        unset or off.
+      default: []
       selector:
         entity:
           domain: notify
+          multiple: true
+
+    notify_target_service:
+      name: 'Fallback notification: service name'
+      description: >-
+        A legacy notify service used as fallback, e.g. "notify.family_phones" for
+        a notify group. For targets not selectable above, such as notify groups.
+        Fires alongside any entities picked above.
+      default: ''
+      selector:
+        text: {}
 
 mode: restart
 max_exceeded: silent
@@ -111,7 +144,23 @@ action:
       scenes_for_key: >-
         {{ {'Light/Green': green_scene, 'Light/Red': red_scene,
             'Light/Yellow': yellow_scene, 'Light/Blue': blue_scene}.get(keypress, []) }}
+      beoproduct: !input beoproduct
       notify_target: !input notify_target
+      notify_service_power: !input notify_service_power
+      notify_service: !input notify_service
+      # Gate entity: chosen, else the B&O product's media_player.
+      notify_power_entity: >-
+        {{ notify_service_power if notify_service_power not in [none, ""]
+           else (device_entities(beoproduct) | select('match', 'media_player') | first | default('')) }}
+      # Service active when set and its gate isn't off.
+      notify_service_active: >-
+        {{ notify_service not in [none, ""]
+           and (notify_power_entity in [none, ""]
+                or states(notify_power_entity) not in
+                   ['off', 'standby', 'unavailable', 'unknown']) }}
+      # Any fallback entity picked? (list input)
+      notify_target_set: '{{ (notify_target | default([]) | count) > 0 }}'
+      notify_target_service: !input notify_target_service
   - choose:
       # --- Main light: on / off / toggle ---
       - conditions:
@@ -190,13 +239,34 @@ action:
           - service: scene.turn_on
             data:
               entity_id: '{{ next_scene }}'
-          # Push the scene we landed on.
+          # Push the scene we landed on: primary service (e.g. TV) while its
+          # gate is on, else the fallback entity (e.g. phone).
+          - variables:
+              notify_message: 'Scene: {{ state_attr(next_scene, "friendly_name") or next_scene }}'
           - if:
-              - '{{ notify_target not in [none, ""] }}'
+              - '{{ notify_service_active }}'
             then:
-              - service: notify.send_message
-                target:
-                  entity_id: !input notify_target
+              # Tolerate a race where the target went off after the gate read on.
+              - service: '{{ notify_service }}'
+                continue_on_error: true
                 data:
                   title: Lights
-                  message: 'Scene: {{ state_attr(next_scene, "friendly_name") or next_scene }}'
+                  message: '{{ notify_message }}'
+            else:
+              - if:
+                  - '{{ notify_target_set }}'
+                then:
+                  - service: notify.send_message
+                    target:
+                      entity_id: '{{ notify_target }}'
+                    data:
+                      title: Lights
+                      message: '{{ notify_message }}'
+              - if:
+                  - '{{ notify_target_service not in [none, ""] }}'
+                then:
+                  - service: '{{ notify_target_service }}'
+                    continue_on_error: true
+                    data:
+                      title: Lights
+                      message: '{{ notify_message }}'
